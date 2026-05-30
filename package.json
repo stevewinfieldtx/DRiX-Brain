@@ -4,15 +4,22 @@
   "description": "Shared core for all DRiX / ReadyLead products. LLM wrapper, web fetcher, intel modules, DB layer.",
   "main": "src/index.js",
   "scripts": {
-    "check": "node --check src/index.js && node --check src/llm/callLLM.js && node --check src/fetch/fetchAndStrip.js && node --check src/db/db.js && node --check src/intel/company-intel.js && node --check src/intel/competitive-intel.js && node --check src/intel/individual-scan.js && node --check src/intel/meeting-analysis.js && node --check src/intel/osint-enrichment.js",
-    "smoke": "node scripts/smoke.js"
+    "check": "node --check src/index.js && node --check src/llm/callLLM.js && node --check src/fetch/fetchAndStrip.js && node --check src/db/db.js && node --check src/intel/company-intel.js && node --check src/intel/competitive-intel.js && node --check src/intel/individual-scan.js && node --check src/intel/meeting-analysis.js && node --check src/intel/osint-enrichment.js && node --check src/server.js && node --check client/index.js",
+    "smoke": "node scripts/smoke.js",
+    "start": "node src/server.js"
   },
   "engines": {
     "node": ">=18.0.0"
   },
   "dependencies": {
     "dotenv": "^16.4.5",
-    "pg": "^8.20.0"
+    "pg": "^8.20.0",
+    "express": "^4.21.2"
   },
-  "private": true
+  "private": true,
+  "exports": {
+    ".": "./src/index.js",
+    "./client": "./client/index.js",
+    "./src/*": "./src/*"
+  }
 }

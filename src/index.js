@@ -15,6 +15,7 @@
 const { callLLM, salvageJSON, repairStrategyResponse } = require('./llm/callLLM');
 const { fetchAndStrip, firecrawlScrape } = require('./fetch/fetchAndStrip');
 const db = require('./db/db');
+const cache = require('./cache');
 
 // Intel modules — copied verbatim from DRiX-Ready-Leads-v2.
 const companyIntel = require('./intel/company-intel');
@@ -35,6 +36,9 @@ module.exports = {
 
   // DB
   db,
+
+  // Cache (Postgres-backed)
+  cache,
 
   // Intel
   companyIntel,
