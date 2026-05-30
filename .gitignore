@@ -1,0 +1,31 @@
+# Secrets — NEVER commit
+.env
+.env.local
+.env.*.local
+.env.development
+.env.production
+!.env.example
+
+# Dependencies
+node_modules/
+
+# Build / runtime output
+build/
+dist/
+.cache/
+*.log
+npm-debug.log*
+
+# Editor & OS junk
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Misc
+*.tmp
+coverage/
+.nyc_output/
