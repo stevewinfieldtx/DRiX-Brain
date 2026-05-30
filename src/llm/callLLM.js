@@ -11,7 +11,48 @@ require('dotenv').config();
 const OPENROUTER_API_KEY  = process.env.OPENROUTER_API_KEY;
 const OPENROUTER_MODEL_ID = process.env.OPENROUTER_MODEL_ID;
 
-async function callLLM(systemPrompt, userContent, { maxTokens = 4500, temperature = 0.3, retries = 1, modelOverride = null } = {}) {
+
+// When a responseSchema is supplied, build a tool_use request so the model is
+// FORCED to fill every required field (no more dropped nested pivot fields).
+// Otherwise fall back to the JSON-object response_format.
+function buildBody({ model, systemPrompt, userContent, temperature, maxTokens, responseSchema }) {
+  const base = {
+    model,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user',   content: userContent }
+    ],
+    temperature,
+    max_tokens: maxTokens
+  };
+  if (responseSchema) {
+    base.tools = [{
+      type: 'function',
+      function: {
+        name: 'submit_pitch',
+        description: 'Submit the structured pitch result. You MUST fill every required field.',
+        parameters: responseSchema
+      }
+    }];
+    base.tool_choice = { type: 'function', function: { name: 'submit_pitch' } };
+  } else {
+    base.response_format = { type: 'json_object' };
+  }
+  return base;
+}
+
+// Extract the structured JSON from the model response. Handles BOTH paths:
+// - tool_use:  message.tool_calls[0].function.arguments (string of JSON)
+// - json mode: message.content (string of JSON)
+function extractStructured(messageObj) {
+  const tc = messageObj?.tool_calls?.[0];
+  if (tc?.function?.arguments) {
+    return { content: tc.function.arguments, viaTool: true };
+  }
+  return { content: messageObj?.content || '', viaTool: false };
+}
+
+async function callLLM(systemPrompt, userContent, { maxTokens = 4500, temperature = 0.3, retries = 1, modelOverride = null, responseSchema = null } = {}) {
   if (!OPENROUTER_API_KEY) throw new Error('OPENROUTER_API_KEY not configured');
   const model = modelOverride || OPENROUTER_MODEL_ID;
   for (let attempt = 0; attempt <= retries; attempt++) {
@@ -24,16 +65,9 @@ async function callLLM(systemPrompt, userContent, { maxTokens = 4500, temperatur
           'HTTP-Referer': process.env.APP_URL || 'http://localhost:3000',
           'X-Title': 'DRiX Brain'
         },
-        body: JSON.stringify({
-          model,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userContent }
-          ],
-          response_format: { type: 'json_object' },
-          temperature,
-          max_tokens: maxTokens
-        })
+        body: JSON.stringify(buildBody({
+          model, systemPrompt, userContent, temperature, maxTokens, responseSchema
+        }))
       });
       if (!response.ok) {
         const err = await response.text();
@@ -42,7 +76,8 @@ async function callLLM(systemPrompt, userContent, { maxTokens = 4500, temperatur
         throw new Error(`LLM ${response.status}: ${err.slice(0, 300)}`);
       }
       const data = await response.json();
-      const content = data?.choices?.[0]?.message?.content;
+      const messageObj = data?.choices?.[0]?.message;
+      const { content, viaTool } = extractStructured(messageObj);
       const finishReason = data?.choices?.[0]?.finish_reason;
       if (!content) {
         console.warn(`[callLLM] Empty response (attempt ${attempt + 1}/${retries + 1}, finish_reason=${finishReason}, model=${data?.model || '?'})`);
