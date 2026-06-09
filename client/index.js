@@ -43,5 +43,9 @@ module.exports = {
       lookup: (inputs, reseller_id)            => post('/cache/pitch/lookup',  { inputs, reseller_id }),
       store:  (inputs, reseller_id, result)    => post('/cache/pitch/store',   { inputs, reseller_id, result }),
     },
+    hydration: {
+      lookup: (inputs, selection_key)          => post('/cache/hydration/lookup', { inputs, selection_key }),
+      store:  (inputs, selection_key, result)  => post('/cache/hydration/store',  { inputs, selection_key, result }),
+    },
   },
 };

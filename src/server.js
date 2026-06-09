@@ -11,6 +11,8 @@
 //   POST /cache/scrape/store     { url, fetched, fetched_via }    → { ok }
 //   POST /cache/pitch/lookup     { inputs, reseller_id }          → row | null
 //   POST /cache/pitch/store      { inputs, reseller_id, result }  → { cache_key }
+//   POST /cache/hydration/lookup { inputs, selection_key }         → { cache_key, result } | null
+//   POST /cache/hydration/store  { inputs, selection_key, result } → { cache_key }
 //
 // On startup: connects to Postgres (via brain's own db.js), runs idempotent
 // schema init for the cache tables. If DATABASE_URL is missing the service
@@ -108,6 +110,35 @@ app.post('/cache/pitch/store', async (req, res) => {
     res.json({ ok: true, cache_key });
   } catch (e) {
     console.error('[pitch/store]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ─── HYDRATION CACHE (Cache 2) ───────────────────────────────────────────────
+// Post-selection bundle (questions + emails + pain indicators) keyed on the
+// pre-selection input hash PLUS the chosen selection (strategy id, or a derived
+// top-pain angle for products that skip strategy selection). Reuses ingest_cache
+// (role 'hydration') so it shares the 30-day TTL with the pre-selection caches.
+app.post('/cache/hydration/lookup', async (req, res) => {
+  try {
+    const { inputs, selection_key } = req.body || {};
+    const key = cache.pitch.hashPitchInputs(inputs) + ':' + (selection_key || 'default');
+    const payload = await db.getCachedIngest(key, 'hydration');
+    res.json(payload ? { cache_key: key, result: payload } : null);
+  } catch (e) {
+    console.error('[hydration/lookup]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/cache/hydration/store', async (req, res) => {
+  try {
+    const { inputs, selection_key, result } = req.body || {};
+    const key = cache.pitch.hashPitchInputs(inputs) + ':' + (selection_key || 'default');
+    await db.setCachedIngest(key, 'hydration', result);
+    res.json({ ok: true, cache_key: key });
+  } catch (e) {
+    console.error('[hydration/store]', e.message);
     res.status(500).json({ error: e.message });
   }
 });
