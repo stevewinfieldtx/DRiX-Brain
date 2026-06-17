@@ -1,10 +1,10 @@
 {
   "name": "drix-brain",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Shared core for all DRiX / ReadyLead products. LLM wrapper, web fetcher, intel modules, DB layer.",
   "main": "src/index.js",
   "scripts": {
-    "check": "node --check src/index.js && node --check src/llm/callLLM.js && node --check src/fetch/fetchAndStrip.js && node --check src/db/db.js && node --check src/intel/company-intel.js && node --check src/intel/competitive-intel.js && node --check src/intel/individual-scan.js && node --check src/intel/meeting-analysis.js && node --check src/intel/osint-enrichment.js && node --check src/intel/pain-intel.js && node --check src/intel/strategy-intel.js && node --check src/intel/discovery-intel.js && node --check src/server.js && node --check client/index.js",
+    "check": "node --check src/index.js && node --check src/llm/callLLM.js && node --check src/fetch/fetchAndStrip.js && node --check src/db/db.js && node --check src/intel/company-intel.js && node --check src/intel/competitive-intel.js && node --check src/intel/individual-scan.js && node --check src/intel/meeting-analysis.js && node --check src/intel/osint-enrichment.js && node --check src/intel/pain-intel.js && node --check src/intel/strategy-intel.js && node --check src/intel/discovery-intel.js && node --check src/intel/email-intel.js && node --check src/server.js && node --check client/index.js",
     "smoke": "node scripts/smoke.js",
     "start": "node src/server.js"
   },

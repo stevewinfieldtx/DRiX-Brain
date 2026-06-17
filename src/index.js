@@ -28,6 +28,7 @@ const osintEnrichment = require('./intel/osint-enrichment');
 const painIntel = require('./intel/pain-intel');           // extractPainPoints, PAIN_PROMPT
 const strategyIntel = require('./intel/strategy-intel');   // generateStrategies, STRATEGIES_PROMPT(_AI_OPPS)
 const discoveryIntel = require('./intel/discovery-intel'); // generateDiscoveryIntel, DISCOVERY_INTEL_PROMPT
+const emailIntel = require('./intel/email-intel');         // generateEmailDrip, EMAIL_DRIP_PROMPT, EMAIL_DRIP_SCHEMA
 
 module.exports = {
   // LLM
@@ -54,4 +55,5 @@ module.exports = {
   painIntel,
   strategyIntel,
   discoveryIntel,
+  emailIntel,
 };
