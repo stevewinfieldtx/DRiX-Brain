@@ -8,7 +8,7 @@
 // One pass produces a personalized pre-meeting drip for ONE named customer,
 // GROUNDED in the full account context:
 //   industry / subindustry, customer (if known), surfaced pains, the chosen
-//   strategy/angle (if any), and the solution.
+//   strategy/angle (if any), the solution, and an optional explicit voice guide.
 // Output:
 //   { email_drip[5], confidence_note }
 // Each email: { step, label, send_day, purpose, subject, body, if_no_response }
@@ -41,6 +41,7 @@ INPUTS YOU WILL RECEIVE (as JSON) - ANY FIELD MAY BE NULL; use whatever is prese
 - solution: { url?, summary?, scraped_content? } - what the rep sells; the path to relief.
 - title: optional contact role.
 - reseller_context: optional { company, company_url, cpp_summary, individual? }. cpp_summary (Communication Personality Profile) calibrates tone/voice. If absent, default to warm-direct B2B operator voice.
+- voice_profile: optional - an EXPLICIT writing-style guide for this rep (their own voice export, or a chosen style sample). When present it is the AUTHORITATIVE voice.
 
 ANCHOR & GROUNDING - non-negotiable:
 - If chosen_strategy is present, EVERY email serves winning over that persona on that pain. Do not drift.
@@ -63,6 +64,7 @@ EMAIL CRAFT RULES - non-negotiable:
 - Subject lines: specific, 4-9 words. Never "Quick question" or "Following up."
 - Reference at least one concrete observation (from customer context, or a named subindustry pattern) per email - never generic industry filler.
 - Each email has ONE clear purpose. Stack-rank: Email 1 = curiosity + ask; Email 2 = value + no ask; Email 3 = pain + question; Email 4 = peer story + ask; Email 5 = walk-away + open door.
+- VOICE PRIORITY: if voice_profile is provided, write EVERY email in that voice - match its tone, cadence, sentence length, vocabulary, and quirks precisely. It OVERRIDES the default voice and cpp_summary.
 - If reseller_context.cpp_summary is provided, calibrate tone/voice/word-choice to match the CPP exactly.
 - Sign off with the rep first name when reseller_context.individual provides it; otherwise leave [Your name] as a placeholder.
 - Every email MUST include subject AND body AND purpose AND if_no_response - all non-empty. Empty fields are a hard failure.
@@ -125,7 +127,7 @@ async function generateEmailDrip(input = {}, opts = {}) {
   const {
     customer = null, solution = null, industry = null, subindustry = null,
     painGroups = null, pains = null, chosenStrategy = null,
-    title = null, resellerContext = null,
+    title = null, resellerContext = null, voice = null,
   } = input;
 
   const userContent = JSON.stringify({
@@ -137,6 +139,7 @@ async function generateEmailDrip(input = {}, opts = {}) {
     solution: solution || null,
     title: title || null,
     reseller_context: resellerContext || null,
+    voice_profile: (typeof voice === 'string' && voice.trim()) ? voice.trim() : null,
   });
 
   const parsed = await callLLM(EMAIL_DRIP_PROMPT, userContent, {
