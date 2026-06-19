@@ -1,6 +1,6 @@
 {
   "name": "drix-brain",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "description": "Shared core for all DRiX / ReadyLead products. LLM wrapper, web fetcher, intel modules, DB layer.",
   "main": "src/index.js",
   "scripts": {
