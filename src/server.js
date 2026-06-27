@@ -143,6 +143,94 @@ app.post('/cache/hydration/store', async (req, res) => {
   }
 });
 
+// ─── MEETING INTELLIGENCE ───────────────────────────────────────────────────
+// POST /intel/meeting  — Full Ready Leads pipeline. Cache-first, TDE-powered.
+// POST /intel/scan     — Lightweight single-person scan.
+
+const { analyzeReadyLeads, analyzeSingle } = require('./intel/meeting-analysis');
+
+function meetingCacheKey(attendees, solution, meetingType) {
+  const attendeeKey = attendees
+    .map(a => `${(a.name || '').toLowerCase().trim()}|${(a.company || '').toLowerCase().trim()}|${(a.title || '').toLowerCase().trim()}`)
+    .sort()
+    .join('::');
+  return `meeting:${attendeeKey}:${(solution || '').toLowerCase().trim()}:${meetingType || 'discovery'}`;
+}
+
+// Minimal TDE config — stores individual atoms in ingest_cache
+const tdeConfig = {
+  tdeAvailable: () => !!(db.isConfigured && db.isConfigured()),
+  tdeRequest: async (method, path, body) => {
+    if (method === 'POST' && path === '/ingest' && body?.collectionId && body?.input) {
+      await db.setCachedIngest(body.collectionId, 'tde-atom', { content: body.input, title: body.opts?.title });
+      return { ok: true };
+    }
+    return { ok: true };
+  },
+  warmTdeCacheAsync: () => {},
+  urlToCollectionId: (url) => `url-${(url || 'unknown').replace(/[^a-z0-9]/gi, '-').substring(0, 60)}`,
+};
+
+app.post('/intel/meeting', async (req, res) => {
+  try {
+    const { attendees, solution, meetingType, company, industry, notes } = req.body || {};
+    if (!attendees || !Array.isArray(attendees) || attendees.length === 0) {
+      return res.status(400).json({ error: 'attendees array required (at least 1)' });
+    }
+    if (!solution) return res.status(400).json({ error: 'solution required' });
+    if (attendees.length > 10) return res.status(400).json({ error: 'max 10 attendees' });
+
+    // Check cache
+    const cacheKey = meetingCacheKey(attendees, solution, meetingType);
+    console.log(`[intel/meeting] Key: ${cacheKey}`);
+    const cached = await db.getCachedIngest(cacheKey, 'meeting');
+    if (cached) {
+      console.log(`[intel/meeting] Cache HIT`);
+      return res.json({ ...cached, _cached: true, _cache_key: cacheKey });
+    }
+    console.log(`[intel/meeting] Cache MISS — running pipeline`);
+
+    const llmConfig = {
+      openrouterApiKey: process.env.OPENROUTER_API_KEY,
+      modelId: process.env.OPENROUTER_MODEL_ID || 'anthropic/claude-sonnet-4.5',
+      cerebrasApiKey: process.env.CEREBRAS_API_KEY || null,
+    };
+    if (!llmConfig.openrouterApiKey) {
+      return res.status(503).json({ error: 'OPENROUTER_API_KEY not configured' });
+    }
+
+    const context = {
+      solution,
+      company: company || attendees[0]?.company || 'Unknown',
+      industry: industry || 'Unknown',
+      meetingType: meetingType || 'discovery',
+      notes: notes || null,
+    };
+
+    const result = await analyzeReadyLeads(attendees, context, tdeConfig, llmConfig);
+    await db.setCachedIngest(cacheKey, 'meeting', result);
+    console.log(`[intel/meeting] Done — ${result.pipelineTimeMs}ms, cached`);
+    res.json({ ...result, _cached: false, _cache_key: cacheKey });
+  } catch (e) {
+    console.error('[intel/meeting]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/intel/scan', async (req, res) => {
+  try {
+    const attendee = req.body || {};
+    if (!attendee.name && !attendee.email && !attendee.linkedin) {
+      return res.status(400).json({ error: 'need at least name, email, or linkedin' });
+    }
+    const result = await analyzeSingle(attendee, tdeConfig);
+    res.json(result);
+  } catch (e) {
+    console.error('[intel/scan]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ─── Catch-all ─────────────────────────────────────────────────────────────
 app.use((req, res) => res.status(404).json({ error: 'not found', path: req.path }));
 
